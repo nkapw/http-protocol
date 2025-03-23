@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"http-protocol/internal/headers"
 	"io"
+	"strconv"
 	"strings"
 )
 
@@ -13,6 +14,7 @@ const (
 	stateInitialized = iota
 	stateDone
 	requestStateParsingHeaders
+	stateParsingBody
 )
 
 const crlf = "\r\n"
@@ -21,6 +23,7 @@ const bufSize = 8
 type Request struct {
 	RequestLine RequestLine
 	Headers     headers.Headers
+	Body        []byte
 	state       int
 }
 
@@ -126,9 +129,34 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 			return 0, err
 		}
 		if done {
-			r.state = stateDone
+			contentLengthStr := r.Headers.Get("Content-Length")
+			if contentLengthStr == "" {
+				r.state = stateDone
+			} else {
+				r.state = stateParsingBody
+			}
 		}
 		return consumed, nil
+	case stateParsingBody:
+		contentLengthStr := r.Headers.Get("Content-Length")
+		contentLength, err := strconv.Atoi(contentLengthStr)
+		if err != nil {
+			return 0, fmt.Errorf("invalid content length")
+		}
+
+		remainingBytes := contentLength - len(r.Body)
+		if remainingBytes <= 0 {
+			r.state = stateDone
+			return 0, nil
+		}
+
+		bytesToRead := min(remainingBytes, len(data))
+		r.Body = append(r.Body, data[:bytesToRead]...)
+
+		if len(r.Body) == contentLength {
+			r.state = stateDone
+		}
+		return bytesToRead, nil
 	case stateDone:
 		return 0, fmt.Errorf("error: trying to read data in a done state")
 	default:

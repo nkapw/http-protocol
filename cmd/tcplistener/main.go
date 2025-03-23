@@ -88,4 +88,6 @@ func (s *Server) handleConnection(conn net.Conn) {
 		fmt.Printf(" - %v: %v\n", k, v)
 	}
 
+	fmt.Printf("Body:\n %v\n", string(r.Body))
+
 }

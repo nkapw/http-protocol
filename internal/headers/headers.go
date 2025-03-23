@@ -49,6 +49,10 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	return end + 2, false, nil
 }
 
+func (h Headers) Get(key string) string {
+	return h[strings.ToLower(key)]
+}
+
 func isValidKey(key string) bool {
 	if len(key) == 0 {
 		return false
